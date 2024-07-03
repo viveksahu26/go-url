@@ -27,19 +27,19 @@ func ListFiles(fs billy.Filesystem, path string, predicate func(fs.FileInfo) boo
 	if _, err := fs.Stat(path); err != nil {
 		log.Fatalf("Failed to retrieve file Info: %s", err)
 	}
-	fmt.Println("Path: ", path)
+	// fmt.Println("Path: ", path)
 
 	files, err := fs.ReadDir(path)
 	if err != nil {
 		log.Fatalf("Failed to read path: %s", err)
 	}
-	fmt.Println("files: ", files)
+	// fmt.Println("files: ", files)
 
 	var results []string
 
 	for _, file := range files {
 		name := filepath.Join(path, file.Name())
-		fmt.Println("name: ", name)
+		// fmt.Println("name: ", name)
 
 		if file.IsDir() {
 			children, err := ListFiles(fs, name, predicate)
@@ -50,6 +50,25 @@ func ListFiles(fs billy.Filesystem, path string, predicate func(fs.FileInfo) boo
 		} else if predicate(file) {
 			results = append(results, name)
 		}
+	}
+	return results, nil
+}
+
+func ProcessPath(fs billy.Filesystem, path string) ([]string, error) {
+	fileInfo, err := fs.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve file info: %w", err)
+	}
+
+	var results []string
+	if fileInfo.IsDir() {
+		files, err := ListFiles(fs, path, IsJson)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list files in directory: %w", err)
+		}
+		results = append(results, files...)
+	} else {
+		results = append(results, path)
 	}
 	return results, nil
 }

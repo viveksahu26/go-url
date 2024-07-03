@@ -16,79 +16,67 @@ import (
 )
 
 func main() {
-	url_path := "https://github.com/interlynk-io/sbomqs/blob/main/samples/sbomqs-spdx-syft.json"
+	urlPath := "https://github.com/interlynk-io/sbomqs/blob/main/samples/sbomqs-spdx-syft.json"
 
-	if source.IsGit(url_path) {
-		fmt.Println("Yes, it's a git url: ", url_path)
+	if source.IsGit(urlPath) {
+		fmt.Println("Yes, it's a git url: ", urlPath)
 
 		fs := memfs.New()
-		gitURL, err := url.Parse(url_path)
+
+		gitURL, err := url.Parse(urlPath)
 		if err != nil {
-			log.Fatalf("err: ", err)
-		} else {
-			fmt.Println("parse gitURL: ", gitURL)
-			pathElems := strings.Split(gitURL.Path[1:], "/")
-			fmt.Println("pathElems: ", pathElems)
+			log.Fatalf("err:%v ", err)
+		}
 
-			if len(pathElems) <= 1 {
-				log.Fatalf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
-			}
+		fmt.Println("parse gitURL: ", gitURL)
 
-			fmt.Println("gitURL.Path: ", gitURL.Path)
+		pathElems := strings.Split(gitURL.Path[1:], "/")
+		if len(pathElems) <= 1 {
+			log.Fatalf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
+		}
 
-			gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-			fmt.Println("gitURL.Path: ", gitURL.Path)
+		fmt.Println("pathElems: ", pathElems)
+		fmt.Println("Before gitURL.Path: ", gitURL.Path)
 
-			repoURL := gitURL.String()
-			fmt.Println("repoURL: ", repoURL)
+		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+		fmt.Println("After gitURL.Path: ", gitURL.Path)
 
-			filePath := strings.Join([]string{pathElems[len(pathElems)-2], pathElems[len(pathElems)-1]}, "/")
-			fmt.Println("filePath: ", filePath)
+		repoURL := gitURL.String()
+		fmt.Println("repoURL: ", repoURL)
 
-			cloneOptions := &git.CloneOptions{
-				URL:           repoURL,
-				ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", "main")),
-				Depth:         1,
-				Progress:      os.Stdout,
-				SingleBranch:  true,
-			}
+		fileOrDirPath := strings.Join(pathElems[4:], "/")
+		fmt.Println("lastPathElement: ", fileOrDirPath)
 
-			repo, err := git.Clone(memory.NewStorage(), fs, cloneOptions)
+		cloneOptions := &git.CloneOptions{
+			URL:           repoURL,
+			ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", "main")),
+			Depth:         1,
+			Progress:      os.Stdout,
+			SingleBranch:  true,
+		}
+
+		_, err = git.Clone(memory.NewStorage(), fs, cloneOptions)
+		if err != nil {
+			log.Fatalf("Failed to clone repository: %s", err)
+		}
+
+		var paths []string
+		if paths, err = source.ProcessPath(fs, fileOrDirPath); err != nil {
+			log.Fatalf("Error processing path: %v", err)
+		}
+
+		for _, p := range paths {
+			fmt.Println("File Path:", p)
+			dataOpen, err := fs.Open(p)
 			if err != nil {
-				log.Fatalf("Failed to clone repository: %s", err)
+				log.Fatalf("Error opening file: %v", err)
 			}
-			fmt.Println("repo: ", repo)
-
-			gitPathToJson := "/"
-
-			allFiles, err := source.ListFiles(fs, gitPathToJson, source.IsJson)
+			data, err := io.ReadAll(dataOpen)
 			if err != nil {
-				log.Fatalf("error: failed to list all files in repository (%w)", err)
-				fmt.Println("error: failed to list all files in repository (%w)", err)
+				fmt.Println("error: failed to read file", err)
+				continue
 			}
-			fmt.Println("all Files: ", allFiles)
-			var ourFiles []string
-
-			for _, file := range allFiles {
-				if strings.Contains(file, filePath) {
-					fmt.Println("Yes, this file is ours")
-					ourFiles = append(ourFiles, file)
-				}
-			}
-			fmt.Println("ourFiles: ", ourFiles)
-
-			for _, file := range ourFiles {
-				filePath, err := fs.Open(file)
-				if err != nil {
-					fmt.Println("error: failed to open file(%w)", err)
-				}
-				data, err := io.ReadAll(filePath)
-				if err != nil {
-					fmt.Println("error: failed to read file(%w)", err)
-				}
-				fmt.Println("data: ", string(data))
-
-			}
+			fmt.Println("Data from file:", string(data))
 
 		}
 
