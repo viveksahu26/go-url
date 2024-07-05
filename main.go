@@ -16,7 +16,8 @@ import (
 )
 
 func main() {
-	urlPath := "https://github.com/interlynk-io/sbomqs/blob/main/samples/sbomqs-spdx-syft.json"
+	// urlPath := "https://github.com/interlynk-io/sbomqs/blob/main/samples"
+	urlPath := "https://github.com/chainguard-dev/bom-shelter/tree/main/in-the-wild/spdx"
 
 	if source.IsGit(urlPath) {
 		fmt.Println("Yes, it's a git url: ", urlPath)

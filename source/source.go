@@ -19,11 +19,13 @@ func IsJson(file fs.FileInfo) bool {
 		return false
 	}
 	ext := filepath.Ext(file.Name())
-	return ext == ".json"
+	fmt.Println("SBOM file extension: ", ext)
+	return ext == ".json" || ext == ".spdx.json" || ext == ".spdx"
 }
 
 func ListFiles(fs billy.Filesystem, path string, predicate func(fs.FileInfo) bool) ([]string, error) {
 	path = filepath.Clean(path)
+
 	if _, err := fs.Stat(path); err != nil {
 		log.Fatalf("Failed to retrieve file Info: %s", err)
 	}
@@ -39,7 +41,6 @@ func ListFiles(fs billy.Filesystem, path string, predicate func(fs.FileInfo) boo
 
 	for _, file := range files {
 		name := filepath.Join(path, file.Name())
-		// fmt.Println("name: ", name)
 
 		if file.IsDir() {
 			children, err := ListFiles(fs, name, predicate)
